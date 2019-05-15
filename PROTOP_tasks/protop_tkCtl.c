@@ -27,6 +27,7 @@ void tkCtl(void * pvParameters)
 	for( ;; )
 	{
 		vTaskDelay( ( TickType_t)( 1000 / portTICK_RATE_MS ) );
+		WDT_Reset();
 		pv_ctl_wink_led();
 		pv_ctl_wdg_reset();
 
@@ -60,6 +61,8 @@ static void pv_ctl_init_system(void)
 
 	// Arranco el RTC. Si hay un problema lo inicializo.
 	RTC_init();
+
+	DRV8814_init();
 
 	// Habilito a arrancar al resto de las tareas
 	startTask = true;

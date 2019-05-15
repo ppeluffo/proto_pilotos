@@ -11,9 +11,6 @@
 
 #include "protop.h"
 
-#define MAX_COUNTER_CHANNELS 2
-
-static float counters[MAX_COUNTER_CHANNELS];
 static void pv_tkCounter_init(void);
 
 //------------------------------------------------------------------------------------
@@ -81,17 +78,3 @@ uint8_t i;
 
 }
 //------------------------------------------------------------------------------------
-// FUNCIONES PUBLICAS
-//------------------------------------------------------------------------------------
-void clearCounter(uint8_t counter_id)
-{
-	counters[counter_id] = 0;
-
-}
-//------------------------------------------------------------------------------------
-uint16_t readCounter(uint8_t counter_id)
-{
-	return ((uint16_t) counters[counter_id] );
-}
-//------------------------------------------------------------------------------------
-

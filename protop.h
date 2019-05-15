@@ -60,8 +60,8 @@
 //------------------------------------------------------------------------------------
 // DEFINES
 //------------------------------------------------------------------------------------
-#define SPX_FW_REV "0.0.1"
-#define SPX_FW_DATE "@ 20190304"
+#define SPX_FW_REV "0.0.2"
+#define SPX_FW_DATE "@ 20190515"
 
 #define SPX_HW_MODELO "protoPilotos HW:xmega256A3B R1.1"
 #define SPX_FTROS_VERSION "FW:FRTOS10 TICKLESS"
@@ -83,14 +83,15 @@
 #define tkCmd_STACK_SIZE		512
 #define tkCounter_STACK_SIZE	512
 #define tkData_STACK_SIZE		512
+#define tkRegular_STACK_SIZE		512
 
 #define tkCtl_TASK_PRIORITY	 		( tskIDLE_PRIORITY + 1 )
 #define tkCmd_TASK_PRIORITY	 		( tskIDLE_PRIORITY + 1 )
 #define tkCounter_TASK_PRIORITY	 	( tskIDLE_PRIORITY + 1 )
 #define tkData_TASK_PRIORITY	 	( tskIDLE_PRIORITY + 1 )
+#define tkRegular_TASK_PRIORITY	 	( tskIDLE_PRIORITY + 1 )
 
-
-TaskHandle_t xHandle_idle, xHandle_tkCtl, xHandle_tkCmd, xHandle_tkCounter, xHandle_tkData;
+TaskHandle_t xHandle_idle, xHandle_tkCtl, xHandle_tkCmd, xHandle_tkCounter, xHandle_tkData, xHandle_tkRegular;
 
 bool startTask;
 
@@ -98,6 +99,9 @@ void tkCtl(void * pvParameters);
 void tkCmd(void * pvParameters);
 void tkCounter(void * pvParameters);
 void tkData(void * pvParameters);
+void tkRegular(void * pvParameters);
+
+typedef enum { OPEN = 0, CLOSE } t_valve_status;
 
 typedef struct {
 	// Variables de trabajo.
@@ -111,9 +115,23 @@ typedef struct {
 	// El checksum DEBE ser el ultimo byte del systemVars !!!!
 	uint8_t checksum;
 
+	float pout_ref;
+	int tipo_valvula_reguladora;
+	float p_band;
+
+	// Estado de las valvulas
+	t_valve_status status_valve_A;
+	t_valve_status status_valve_B;
+
+	bool regular;
+	bool monitor;
+
 } systemVarsType;
 
 systemVarsType systemVars;
+
+#define MAX_COUNTER_CHANNELS 2
+float counters[MAX_COUNTER_CHANNELS];
 
 // UTILS
 void initMCU(void);
@@ -124,11 +142,18 @@ bool u_config_analog_channel( uint8_t channel,char *s_imin,char *s_imax,char *s_
 void u_load_defaults(void);
 uint8_t u_save_params_in_NVMEE(void);
 bool u_load_params_from_NVMEE(void);
+float u_read_analog_channel ( uint8_t io_channel );
+float u_readAin(uint8_t an_id);
 
-void clearCounter(uint8_t counter_id);
-uint16_t readCounter(uint8_t counter_id);
+void u_clearCounter(uint8_t counter_id);
+uint16_t u_readCounter(uint8_t counter_id);
 
 float readAin(uint8_t an_id);
+
+void vopen ( char valve_id );
+void vclose ( char valve_id );
+void vpulse( char valve_id, float pulse_width_ms );
+void cpulse( char valve_id, int pulse_counter );
 
 
 #endif /* SRC_SPX_H_ */

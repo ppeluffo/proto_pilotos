@@ -10,6 +10,11 @@
 #define RTC32_ToscBusy()        !( VBAT.STATUS & VBAT_XOSCRDY_bm )
 
 //------------------------------------------------------------------------------------
+
+uint16_t raw_val[2];
+float an_val[2];
+
+//------------------------------------------------------------------------------------
 void initMCU(void)
 {
 	// Inicializa los pines del micro
@@ -219,6 +224,10 @@ uint8_t channel;
 	}
 
 	systemVars.timerPoll = 5;
+	systemVars.regular = false;
+	systemVars.p_band = 0.1;
+	systemVars.pout_ref = 1.5;
+	systemVars.monitor = true;
 
 }
 //------------------------------------------------------------------------------------
@@ -290,3 +299,70 @@ uint16_t i;
 	return(true);
 }
 //------------------------------------------------------------------------------------
+float u_read_analog_channel ( uint8_t io_channel )
+{
+	// Lee un canal analogico y devuelve el valor convertido a la magnitud configurada.
+	// Es publico porque se utiliza tanto desde el modo comando como desde el modulo de poleo de las entradas.
+	// Hay que corregir la correspondencia entre el canal leido del INA y el canal fisico del datalogger
+	// io_channel. Esto lo hacemos en AINPUTS_read_ina.
+
+uint16_t an_raw_val;
+float an_mag_val;
+float I,M,P;
+uint16_t D;
+
+	an_raw_val = AINPUTS_read_ina( 0 , io_channel );
+//	xprintf_P(PSTR("RAW_VAL=[%d] "),an_raw_val );
+
+	// Convierto el raw_value a la magnitud
+	// Calculo la corriente medida en el canal
+	I = (float)( an_raw_val) * 20 / 3646;
+
+//	xprintf_P(PSTR("I=[%.02f] "),I );
+
+	// Calculo la magnitud
+	P = 0;
+	D = systemVars.ain_imax[io_channel] - systemVars.ain_imin[io_channel];
+
+//	xprintf_P(PSTR("D=[%.02f] "),D );
+
+	an_mag_val = 0.0;
+	if ( D != 0 ) {
+		// Pendiente
+		P = (float) ( systemVars.ain_mmax[io_channel]  -  systemVars.ain_mmin[io_channel] ) / D;
+		// Magnitud
+		M = (float) (systemVars.ain_mmin[io_channel] + ( I - systemVars.ain_imin[io_channel] ) * P);
+
+		an_mag_val = M;
+
+//		xprintf_P(PSTR("P=[%.02f],M=[%.02f]  "),P,M );
+
+	} else {
+		// Error: denominador = 0.
+		an_mag_val = -999.0;
+	}
+
+//	xprintf_P(PSTR("AN_MAG_VAL=[%.02f]\r\n"),an_mag_val );
+
+	return(an_mag_val);
+
+
+}
+//------------------------------------------------------------------------------------
+float u_readAin(uint8_t an_id)
+{
+	return (an_val[an_id] );
+}
+//------------------------------------------------------------------------------------
+void u_clearCounter(uint8_t counter_id)
+{
+	counters[counter_id] = 0;
+
+}
+//------------------------------------------------------------------------------------
+uint16_t u_readCounter(uint8_t counter_id)
+{
+	return ((uint16_t) counters[counter_id] );
+}
+//------------------------------------------------------------------------------------
+
