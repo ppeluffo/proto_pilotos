@@ -14,39 +14,39 @@
 #define TIME_PWR_ON_VALVES 10
 
 static void pv_regular_init(void);
+static float pv_calcular_pulse_width( float delta_P, float tipo_valvula_reguladora );
+static bool pBaja_estable( float presion_baja );
+static void espera_progresiva(bool action );
 
-uint16_t raw_val[2];
 float presion_alta, presion_baja;
 float delta_P;
 float pulseW;
-
-static float pv_calcular_pulse_width( float delta_P, float tipo_valvula_reguladora );
-static bool pBaja_estable( float presion_baja );
 
 #define P_AVG_DIFF	0.05
 #define MAX_PRES_COUNT	3
 static float pStack[MAX_PRES_COUNT];
 
-#define MAX_ROW 11
-
-float Table_PW[MAX_ROW][2] = {
-		{ 0.1, 0.3 },	// 0
-		{ 0.100, 0.5 },	// 1
-		{ 0.200, 1 },	// 2
-		{ 0.300, 2 },	// 3
-		{ 0.400, 2 },	// 4
-		{ 0.500, 4 },	// 5
-		{ 0.600, 4 },	// 6
-		{ 0.700, 5  },	// 7
-		{ 0.800, 6 },	// 8
-		{ 0.900, 9 },	// 9
-		{ 1.000, 10 },	// 10
-};
+#define MAX_WAIT_LOOPS	5
 
 //------------------------------------------------------------------------------------
 void tkRegular(void * pvParameters)
 {
-
+/* Consideraciones generales:
+ * 1-La P.alta influye en la velocidad de carga de la cabeza del piloto por lo tanto la duracion
+ *   del pulso en subida de presion debe depender de pA. ( Falta )
+ * 2-Tenemos 3 tipos de valvulas reguladoras ( grandes/medias/chicas ). Estas tiene diferente tamaño
+ *   de camara por lo tanto el tiempo de llenado es diferente para c/tipo.
+ *   Esto influye en el timerpoll por lo tanto al considerarlo hay que tener en cuenta la valvula.
+ *   H) Grande: 1min, Media: 30s, Chica: 15s.
+ * 3- Debemos poner una valvula de aguja a la entrada y salida de agua del cabezal del piloto.
+ *   Inicialmente las ponemos al 50% para que de mas margen de regulacion a las electrovalvulas.
+ * 4- Incorporamos una espera progresiva.
+ *    Una vez en el rango de regulacion, aumentamos el tiempo de poleos hasta un maximo de 5 minutos
+ *    para no consumir energia.
+ * 5- Convergencia: ( Falta )
+ *    Ponemos una forma de controlar cuantos pasos maximos usar para corregir la presion.
+ *
+ */
 ( void ) pvParameters;
 
 uint32_t waiting_ticks;
@@ -59,35 +59,31 @@ uint32_t waiting_ticks;
 
 	pv_regular_init();
 
-	// Al iniciar vacio la cabeza del piloto y llevo la presion al minimo
-	vclose('B');
-	vopen('A');
-	vTaskDelay( ( TickType_t)( 10000 / portTICK_RATE_MS ) );
-	vclose('A');
-
 	// loop
 	for( ;; )
 	{
 
-		// Espero un ciclo
-	    waiting_ticks = (uint32_t)(systemVars.timerPoll) * 1000 / portTICK_RATE_MS;
-	    vTaskDelay( waiting_ticks );
+		// Leo las presiones hasta que sean estable
+		while(1) {
 
-		// Leo presiones y caudales
-		presion_alta = u_read_analog_channel (0);
-		presion_baja = u_read_analog_channel (1);
+			waiting_ticks = (uint32_t)(systemVars.timerPoll) * 1000 / portTICK_RATE_MS;
+			vTaskDelay( waiting_ticks );
 
-		if ( systemVars.monitor == true ) {
-			RTC_logprint();
-			xprintf_P(PSTR("Mon: AN0=%.02f, AN1=%.02f, CNT0=%d, CNT1=%d\r\n\0"), presion_alta, presion_baja, u_readCounter(0), u_readCounter(1) );
+			// Leo presiones y caudales
+			presion_alta = u_read_analog_channel (0);
+			presion_baja = u_read_analog_channel (1);
+
+			if ( systemVars.monitor == true ) {
+				xprintf_P(PSTR("\r\n\0"));
+				RTC_logprint();
+				xprintf_P(PSTR("Mon: P.alta=%.02f, P.baja=%.02f\r\n\0"), presion_alta, presion_baja );
+			}
+
+			// Espero al menos 3 valores de pB iguales, que la presion este estable
+			if ( pBaja_estable(presion_baja) )
+				break;
+
 		}
-
-		u_clearCounter(0);
-		u_clearCounter(1);
-
-		// Espero al menos 3 valores de pB iguales, que la presion este estable
-		if ( ! pBaja_estable(presion_baja) )
-			continue;
 
 		// La presion esta estable !!
 		// Regulo ?
@@ -97,30 +93,34 @@ uint32_t waiting_ticks;
 			// Diferencia de presion
 			delta_P = fabs( systemVars.pout_ref - presion_baja );
 
-			if ( delta_P < ( systemVars.p_band / 2 )  ) {
-				// La presion esta estable. No debo regular
+			if ( delta_P < systemVars.p_margen  ) {
+				// No debo regular
 				RTC_logprint();
-				xprintf_P(PSTR("Reg(in-band): deltaP = %.02f (%.02f - %.02f)\r\n\0"), delta_P, systemVars.pout_ref, presion_baja );
-				// Espero 1 minuto
-				waiting_ticks = (uint32_t)( 60000 / portTICK_RATE_MS );
+				xprintf_P(PSTR("Reg(in-band): deltaP(%.02f) = %.02f (%.02f - %.02f)\r\n\0"),systemVars.p_margen, delta_P, systemVars.pout_ref, presion_baja );
+				// Espero progresivamente de 1 a 5 minutos
+				espera_progresiva(true);
 				continue;
+
+			} else {
+				// Si debo regular
+				pulseW = pv_calcular_pulse_width( delta_P, systemVars.tipo_valvula_reguladora );
+				RTC_logprint();
+				xprintf_P(PSTR("Reg(out-band): deltaP(%.02f) = %.02f (%.02f - %.02f), pulse_width = %.02f\r\n\0"), systemVars.p_margen, delta_P, systemVars.pout_ref, presion_baja, pulseW );
+
+				// Aplico correcciones.
+				if ( presion_baja < systemVars.pout_ref ) {
+					// Debo subir la presion
+					vpulse( 'A', pulseW );
+				} else if ( presion_baja > systemVars.pout_ref ) {
+					// Debo bajar la presion
+						vpulse( 'B', pulseW );
+				}
+				// Reseteo la espera progresiva
+				espera_progresiva(false);
 			}
 
-			// Ancho de pulso a aplicar
-			pulseW = pv_calcular_pulse_width( delta_P, systemVars.tipo_valvula_reguladora );
-			RTC_logprint();
-			xprintf_P(PSTR("Reg(out-band): deltaP = %.02f (%.02f - %.02f), pulse_width = %.02f\r\n\0"), delta_P, systemVars.pout_ref, presion_baja, pulseW );
-
-			// Aplico correcciones.
-			if ( presion_baja < systemVars.pout_ref ) {
-				// Debo subir la presion
-				//vpulse( 'B', pulseW );	// Accion directa
-				vpulse( 'A', pulseW );	// Piloto
-			} else if ( presion_baja > systemVars.pout_ref ) {
-				// Debo bajar la presion
-				//vpulse( 'A', pulseW );		// Accion directa
-				vpulse( 'B', pulseW );		// Piloto
-			}
+		} else {
+			vTaskDelay( 60000 / portTICK_RATE_MS );
 		}
 	}
 
@@ -139,6 +139,17 @@ static void pv_regular_init(void)
 	INA_config(0, CONF_INAS_AVG128 );
 	INA_config(1, CONF_INAS_AVG128 );
 
+	// Al iniciar vacio la cabeza del piloto y llevo la presion al minimo
+/*
+	vclose('B');
+	vopen('A');
+	vTaskDelay( ( TickType_t)( 10000 / portTICK_RATE_MS ) );
+	vclose('A');
+*/
+	vclose('A');
+	vopen('B');
+	vTaskDelay( ( TickType_t)( 20000 / portTICK_RATE_MS ) );
+	vclose('B');
 }
 //------------------------------------------------------------------------------------
 static float pv_calcular_pulse_width( float delta_P, float tipo_valvula_reguladora )
@@ -149,45 +160,19 @@ static float pv_calcular_pulse_width( float delta_P, float tipo_valvula_regulado
 
 float pw = 0.1;
 
-/*
+
 	if ( delta_P > 0.2 ) {
 		pw = 0.1;
 	} else if (delta_P > 0.15 ) {
-		pw = 0.1;
+		pw = 0.7;
 	} else if ( delta_P > 0.1 ) {
 		pw = 0.05;
 	} else {
 		pw = 0.01;
 	}
-*/
+
 	return( pw);
 
-}
-//------------------------------------------------------------------------------------
-float pv_calcular_pulse_width_01( float delta_P, float tipo_valvula_reguladora )
-{
-
-int row;
-
-	for ( row = 0; row < MAX_ROW; row++ ) {
-		if ( delta_P <= Table_PW[row][0] ) {
-			return( Table_PW[row][1]);
-		}
-	}
-
-	return( Table_PW[ MAX_ROW -1 ][1]);
-
-/*
-	if ( delta_P > 0.7 ) { return( 1 ); };
-	//  Si la diferencia de presion es de mas de 300 gr. aplico un pulso de 5s
-	if ( delta_P > 0.3 ) { return( 0.5 ); };
-	//  Si la diferencia de presion es entre 200 y 300gr, el pulso es de 1s
-	if ( delta_P > 0.2 ) { return( 0.1 ); };
-	//  Si la diferencia de presion es entre 100 y 200gr, el pulso es de 0.5s
-	if ( delta_P > 0.1 ) { return( 0.05 ); };
-	// Otros casos aplico 0.1s
-	return(0.01);
-*/
 }
 //------------------------------------------------------------------------------------
 static bool pBaja_estable ( float presion_baja )
@@ -215,20 +200,50 @@ bool retS = false;
 	}
 	pAvg /= MAX_PRES_COUNT;
 
-	dif_pres = abs ( pAvg - presion_baja);
+	dif_pres = fabs ( pAvg - presion_baja);
 	if ( dif_pres <= P_AVG_DIFF ) {
 		retS = true;
-		RTC_logprint();
-		xprintf_P( PSTR("pAVG = %.02f, diff = %.02f ESTABLE\r\n\0"), pAvg, dif_pres );
 	} else {
 		retS = false;
-		RTC_logprint();
-		xprintf_P( PSTR("pAVG = %.02f, diff = %.02f IN-ESTABLE\r\n\0"), pAvg, dif_pres );
 	}
 
-	//xprintf_P( PSTR("pAVG = %.02f, diff = %.02f\r\n\0"), pAvg, dif_pres );
+	RTC_logprint();
+	xprintf_P( PSTR("pAVG=%.02f, diff=%.02f : { \0"), pAvg, dif_pres );
+	for (i = 0; i < MAX_PRES_COUNT; i++ ) {
+		xprintf_P( PSTR("p[%d]=%.02f \0"), i, pStack[i] );
+	}
+	if ( retS ) {
+		xprintf_P( PSTR("} ESTABLE\r\n\0"));
+	} else {
+		xprintf_P( PSTR("} IN-ESTABLE\r\n\0"));
+	}
 
 	return(retS);
+}
+//------------------------------------------------------------------------------------
+static void espera_progresiva(bool action )
+{
+
+static uint8_t wait_loops = 0;
+uint8_t i;
+
+	if ( action == true ) {
+		if ( wait_loops++ > MAX_WAIT_LOOPS ) {
+			wait_loops = MAX_WAIT_LOOPS;
+		}
+
+	} else {
+		wait_loops = 0;
+		//return;
+	}
+
+	// Espera
+	RTC_logprint();
+	xprintf_P( PSTR("Espera progresiva(%d)...\0"), wait_loops );
+	for (i=0; i< wait_loops; i++) {
+		vTaskDelay( 60000 / portTICK_RATE_MS );
+	}
+	xprintf_P( PSTR("End\r\n\0"), wait_loops );
 }
 //------------------------------------------------------------------------------------
 // FUNCIONES PUBLICAS
@@ -294,7 +309,9 @@ void vpulse( char valve_id, float pulse_width_s )
 	vTaskDelay( ( TickType_t)( TIME_PWR_ON_VALVES / portTICK_RATE_MS ) );
 
 	DRV8814_vopen( toupper(valve_id), 100);
+	RTC_logprint();
 	xprintf_P( PSTR("Vopen %c\r\n\0"), valve_id );
+
 	switch (valve_id) {
 	case 'A':
 		systemVars.status_valve_A = OPEN;
@@ -306,6 +323,8 @@ void vpulse( char valve_id, float pulse_width_s )
 	vTaskDelay( ( TickType_t)( pulse_width_s * 1000 / portTICK_RATE_MS ) );
 
 	DRV8814_vclose( toupper(valve_id), 100);
+
+	RTC_logprint();
 	xprintf_P( PSTR("Vclose %c\r\n\0"), valve_id );
 	switch (valve_id) {
 	case 'A':
@@ -319,75 +338,3 @@ void vpulse( char valve_id, float pulse_width_s )
 
 }
 //------------------------------------------------------------------------------------
-void cpulse( char valve_id, int pulse_counter )
-{
-
-char valve = toupper(valve_id);
-int contador, contador_actual;
-
-	// Proporciono corriente.
-	DRV8814_power_on();
-	// Espero 10s que se carguen los condensasores
-	vTaskDelay( ( TickType_t)( TIME_PWR_ON_VALVES / portTICK_RATE_MS ) );
-
-	// Abro la valvula indicada
-	DRV8814_vopen( valve, 100);
-	xprintf_P( PSTR("Vopen %c\r\n\0"), valve );
-	switch (valve_id) {
-	case 'A':
-		systemVars.status_valve_A = OPEN;
-		break;
-	case 'B':
-		systemVars.status_valve_B = OPEN;
-	}
-
-	// Espero hasta que el contador correspondiente llegue al valor dado
-	contador = 0;
-	contador_actual = 0;
-	while(1) {
-		// Espero
-		vTaskDelay( ( TickType_t)( 100 / portTICK_RATE_MS ) );
-		// Leo el contador correspondiente
-		switch(valve) {
-		case 'A':
-			contador_actual = u_readCounter(0);
-			break;
-		case 'B':
-			contador_actual = u_readCounter(1);
-			break;
-		}
-
-		// Veo si estoy contando...
-		if ( contador_actual > contador ) {
-			// Esta contando. OK
-			contador = contador_actual;
-		} else {
-			// No esta contando. Salgo
-			xprintf_P( PSTR("Conteo detenido\r\n\0"));
-			goto EXIT;
-		}
-
-		// Veo si llegue al final de la cuenta...
-		if ( contador >= pulse_counter ) {
-			goto EXIT;
-		}
-	}
-
-EXIT:
-	// Cierro
-	DRV8814_vclose( valve , 100);
-	xprintf_P( PSTR("Vclose %c ( counter=%d) \r\n\0"), valve, contador );
-	switch (valve_id) {
-	case 'A':
-		systemVars.status_valve_A = CLOSE;
-		break;
-	case 'B':
-		systemVars.status_valve_B = CLOSE;
-	}
-
-	DRV8814_power_off();
-
-
-}
-//------------------------------------------------------------------------------------
-

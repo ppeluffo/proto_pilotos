@@ -21,7 +21,6 @@ static void cmdClearScreen(void);
 static void cmdResetFunction(void);
 static void cmdStatusFunction(void);
 static void cmdConfigFunction(void);
-static void cmdCountersFunction(void);
 static void cmdValveFunction(void);
 
 RtcTimeType_t rtc;
@@ -49,7 +48,6 @@ uint8_t ticks;
 	FRTOS_CMD_register( "help\0", cmdHelpFunction );
 	FRTOS_CMD_register( "status\0", cmdStatusFunction );
 	FRTOS_CMD_register( "config\0", cmdConfigFunction );
-	FRTOS_CMD_register( "counters\0", cmdCountersFunction);
 	FRTOS_CMD_register( "valve\0", cmdValveFunction);
 	// Fijo el timeout del READ
 	ticks = 5;
@@ -97,8 +95,8 @@ uint8_t channel;
 		xprintf_P( PSTR("regulacion: off\r\n\0"));
 	}
 
-	// P_BAND
-	xprintf_P( PSTR("banda regulacion=%.02f\r\n\0"), systemVars.p_band );
+	// P_MARGEN
+	xprintf_P( PSTR("margen regulacion=%.02f\r\n\0"), systemVars.p_margen );
 
 	// Monitor
 	if ( systemVars.monitor == true ) {
@@ -130,10 +128,6 @@ uint8_t channel;
 	// Analog
 	xprintf_P(PSTR("AN0=%.02f, AN1=%.02f\r\n\0"), u_readAin(0), u_readAin(1) );
 
-	// Contadores
-	xprintf_P(PSTR("CNT0=%d, CNT1=%d\r\n\0"), u_readCounter(0), u_readCounter(1) );
-
-
 }
 //-----------------------------------------------------------------------------------
 static void cmdResetFunction(void)
@@ -141,29 +135,6 @@ static void cmdResetFunction(void)
 	FRTOS_CMD_makeArgv();
 	cmdClearScreen();
 	CCPWrite( &RST.CTRL, RST_SWRST_bm );   /* Issue a Software Reset to initilize the CPU */
-}
-//------------------------------------------------------------------------------------
-static void cmdCountersFunction(void)
-{
-	FRTOS_CMD_makeArgv();
-
-	if (!strcmp_P( strupr(argv[1]), PSTR("RESET\0")) ) {
-		// Reset counters
-		u_clearCounter(0);
-		u_clearCounter(1);
-		return;
-	}
-
-	// Contadores
-	if (!strcmp_P( strupr(argv[1]), PSTR("READ\0"))) {
-		xprintf_P(PSTR("CNT0=%d, CNT1=%d\r\n\0"), u_readCounter(0), u_readCounter(1) );
- 		return;
- 	}
-
-	// CMD NOT FOUND
-	xprintf_P( PSTR("ERROR\r\nCMD NOT DEFINED\r\n\0"));
-	return;
-
 }
 //------------------------------------------------------------------------------------
 static void cmdClearScreen(void)
@@ -247,10 +218,10 @@ static void cmdConfigFunction(void)
 		return;
 	}
 
-	// PBAND
-	// config pband
-	if (!strcmp_P( strupr(argv[1]), PSTR("PBAND\0")) ) {
-		systemVars.p_band = atof( argv[2] );
+	// PMARGEN
+	// config pmargen
+	if (!strcmp_P( strupr(argv[1]), PSTR("PMARGEN\0")) ) {
+		systemVars.p_margen = atof( argv[2] );
 		pv_snprintfP_OK();
 		return;
 	}
@@ -287,18 +258,14 @@ static void cmdHelpFunction(void)
 	xprintf_P( PSTR("  default\r\n\0"));
 	xprintf_P( PSTR("  regular (ON | OFF)\r\n\0"));
 	xprintf_P( PSTR("  monitor (ON | OFF)\r\n\0"));
-	xprintf_P( PSTR("  pout {val}, pband {val} \r\n\0"));
+	xprintf_P( PSTR("  pout {val}, pmargen {val} \r\n\0"));
 	xprintf_P( PSTR("  save\r\n\0"));
-
-	xprintf_P( PSTR("-counters\r\n\0"));
-	xprintf_P( PSTR("  read, reset\r\n\0"));
 
 	xprintf_P( PSTR("-valve\r\n\0"));
 	xprintf_P( PSTR("  (enable|disable),(set|reset),(sleep|awake),(ph01|ph10) } {A/B}\r\n\0"));
 	xprintf_P( PSTR("  (open|close) (A|B)\r\n\0"));
 	xprintf_P( PSTR("  power {on|off}\r\n\0"));
 	xprintf_P( PSTR("  vpulse (A|B) (s)\r\n\0"));
-	xprintf_P( PSTR("  cpulse (A|B) (cval)\r\n\0"));
 	xprintf_P( PSTR("  init\r\n\0"));
 
 	xprintf_P( PSTR("\r\n\0"));
@@ -392,21 +359,7 @@ static void cmdValveFunction(void)
 
 	// vpulse (A|B) (s)
 	if (!strcmp_P( strupr(argv[1]), PSTR("VPULSE\0")) ) {
-		// Borramos los contadores antes de c/pulso de valvulas
-		// para tener el agua que entro/salio en el pulso
-		u_clearCounter(0);
-		u_clearCounter(1);
 		vpulse( toupper(argv[2][0] ), atof(argv[3]) );
-		return;
-	}
-
-	// cpulse (A|B) (cval)
-	if (!strcmp_P( strupr(argv[1]), PSTR("CPULSE\0")) ) {
-		// Borramos los contadores antes de c/pulso de valvulas
-		// para tener el agua que entro/salio en el pulso
-		u_clearCounter(0);
-		u_clearCounter(1);
-		cpulse( toupper(argv[2][0] ), atoi(argv[3]) );
 		return;
 	}
 

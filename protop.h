@@ -45,7 +45,6 @@
 #include "FRTOS-CMD.h"
 
 #include "PROTOP_libs/l_ainputs.h"
-#include "PROTOP_libs/l_counters.h"
 #include "PROTOP_libs/l_doutputs.h"
 #include "PROTOP_libs/l_drv8814.h"
 #include "PROTOP_libs/l_eeprom.h"
@@ -60,7 +59,7 @@
 //------------------------------------------------------------------------------------
 // DEFINES
 //------------------------------------------------------------------------------------
-#define SPX_FW_REV "0.0.6"
+#define SPX_FW_REV "0.0.7"
 #define SPX_FW_DATE "@ 20190619"
 
 #define SPX_HW_MODELO "protoPilotos HW:xmega256A3B R1.1"
@@ -81,17 +80,15 @@
 
 #define tkCtl_STACK_SIZE		512
 #define tkCmd_STACK_SIZE		512
-#define tkCounter_STACK_SIZE	512
 #define tkData_STACK_SIZE		512
 #define tkRegular_STACK_SIZE		512
 
 #define tkCtl_TASK_PRIORITY	 		( tskIDLE_PRIORITY + 1 )
 #define tkCmd_TASK_PRIORITY	 		( tskIDLE_PRIORITY + 1 )
-#define tkCounter_TASK_PRIORITY	 	( tskIDLE_PRIORITY + 1 )
 #define tkData_TASK_PRIORITY	 	( tskIDLE_PRIORITY + 1 )
 #define tkRegular_TASK_PRIORITY	 	( tskIDLE_PRIORITY + 1 )
 
-TaskHandle_t xHandle_idle, xHandle_tkCtl, xHandle_tkCmd, xHandle_tkCounter, xHandle_tkData, xHandle_tkRegular;
+TaskHandle_t xHandle_idle, xHandle_tkCtl, xHandle_tkCmd, xHandle_tkData, xHandle_tkRegular;
 
 bool startTask;
 
@@ -117,7 +114,7 @@ typedef struct {
 
 	float pout_ref;
 	int tipo_valvula_reguladora;
-	float p_band;
+	float p_margen;
 
 	// Estado de las valvulas
 	t_valve_status status_valve_A;
@@ -129,9 +126,6 @@ typedef struct {
 } systemVarsType;
 
 systemVarsType systemVars;
-
-#define MAX_COUNTER_CHANNELS 2
-float counters[MAX_COUNTER_CHANNELS];
 
 // UTILS
 void initMCU(void);
@@ -145,15 +139,10 @@ bool u_load_params_from_NVMEE(void);
 float u_read_analog_channel ( uint8_t io_channel );
 float u_readAin(uint8_t an_id);
 
-void u_clearCounter(uint8_t counter_id);
-uint16_t u_readCounter(uint8_t counter_id);
-
 float readAin(uint8_t an_id);
 
 void vopen ( char valve_id );
 void vclose ( char valve_id );
 void vpulse( char valve_id, float pulse_width_s );
-void cpulse( char valve_id, int pulse_counter );
-
 
 #endif /* SRC_SPX_H_ */

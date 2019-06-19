@@ -217,15 +217,15 @@ void u_load_defaults(void)
 uint8_t channel;
 
 	for ( channel = 0; channel < MAX_ANALOG_CHANNELS; channel++) {
-		systemVars.ain_imin[channel] = 0;
+		systemVars.ain_imin[channel] = 4;
 		systemVars.ain_imax[channel] = 20;
 		systemVars.ain_mmin[channel] = 0;
-		systemVars.ain_mmax[channel] = 6.0;
+		systemVars.ain_mmax[channel] = 10.0;
 	}
 
-	systemVars.timerPoll = 5;
+	systemVars.timerPoll = 15;
 	systemVars.regular = false;
-	systemVars.p_band = 0.1;
+	systemVars.p_margen = 0.075;
 	systemVars.pout_ref = 1.5;
 	systemVars.monitor = true;
 
@@ -352,19 +352,6 @@ uint16_t D;
 float u_readAin(uint8_t an_id)
 {
 	return (an_val[an_id] );
-}
-//------------------------------------------------------------------------------------
-void u_clearCounter(uint8_t counter_id)
-{
-	//counters[counter_id] = 0;
-	COUNTERS_reset(counter_id);
-
-}
-//------------------------------------------------------------------------------------
-uint16_t u_readCounter(uint8_t counter_id)
-{
-	//return ((uint16_t) counters[counter_id] );
-	return( COUNTERS_read (counter_id));
 }
 //------------------------------------------------------------------------------------
 
