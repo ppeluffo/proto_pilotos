@@ -356,13 +356,15 @@ float u_readAin(uint8_t an_id)
 //------------------------------------------------------------------------------------
 void u_clearCounter(uint8_t counter_id)
 {
-	counters[counter_id] = 0;
+	//counters[counter_id] = 0;
+	COUNTERS_reset(counter_id);
 
 }
 //------------------------------------------------------------------------------------
 uint16_t u_readCounter(uint8_t counter_id)
 {
-	return ((uint16_t) counters[counter_id] );
+	//return ((uint16_t) counters[counter_id] );
+	return( COUNTERS_read (counter_id));
 }
 //------------------------------------------------------------------------------------
 

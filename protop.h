@@ -60,8 +60,8 @@
 //------------------------------------------------------------------------------------
 // DEFINES
 //------------------------------------------------------------------------------------
-#define SPX_FW_REV "0.0.2"
-#define SPX_FW_DATE "@ 20190515"
+#define SPX_FW_REV "0.0.6"
+#define SPX_FW_DATE "@ 20190619"
 
 #define SPX_HW_MODELO "protoPilotos HW:xmega256A3B R1.1"
 #define SPX_FTROS_VERSION "FW:FRTOS10 TICKLESS"
@@ -152,7 +152,7 @@ float readAin(uint8_t an_id);
 
 void vopen ( char valve_id );
 void vclose ( char valve_id );
-void vpulse( char valve_id, float pulse_width_ms );
+void vpulse( char valve_id, float pulse_width_s );
 void cpulse( char valve_id, int pulse_counter );
 
 

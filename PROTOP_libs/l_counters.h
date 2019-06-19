@@ -20,9 +20,13 @@
 
 bool wakeup_for_C0, wakeup_for_C1;
 
+uint16_t counter_C0, counter_C1;
+
 //------------------------------------------------------------------------------------
 // API publica
 void COUNTERS_init( TaskHandle_t taskHandle );
+void COUNTERS_reset( uint8_t counter_id );
+uint16_t COUNTERS_read( uint8_t counter_id );
 
 #define cTask_wakeup_for_C0() ( wakeup_for_C0 ? true: false )
 #define cTask_wakeup_for_C1() ( wakeup_for_C1 ? true: false )
@@ -42,7 +46,6 @@ void COUNTERS_init( TaskHandle_t taskHandle );
 
 #define CNT_read_CNT0()	IO_read_PB2()
 #define CNT_read_CNT1()	IO_read_PA2()
-
 
 
 #endif /* SRC_PROTOP_LIBS_L_COUNTERS_H_ */

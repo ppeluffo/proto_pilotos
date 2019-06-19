@@ -210,6 +210,23 @@ bool retS;
 	}
 }
 //------------------------------------------------------------------------------------
+void RTC_logprint( void )
+{
+
+char datetime[32];
+RtcTimeType_t rtc;
+bool retS;
+
+	retS = RTC_read_dtime(&rtc);
+	if ( ! retS ) {
+		xprintf_P(PSTR("ERROR: I2C:RTC:pv_cmd_rwRTC\r\n\0"));
+	} else {
+		RTC_rtc2str( datetime, &rtc);
+		xprintf_P( PSTR("%s: \0"), datetime );
+	}
+}
+//------------------------------------------------------------------------------------
+
 // TEST
 //------------------------------------------------------------------------------------
 int8_t RTCSRAM_test_write( char *addr, char *str )

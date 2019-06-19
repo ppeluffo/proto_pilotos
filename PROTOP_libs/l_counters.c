@@ -45,9 +45,13 @@ ISR ( PORTA_INT0_vect )
 	// el pulso y haga el debounced.
 	// Dado que los ISR de los 2 contadores son los que despiertan a la tarea, debo
 	// indicarle de donde proviene el llamado
-	wakeup_for_C0 = true;
-	vTaskNotifyGiveFromISR( countersTaskHandle , &xHigherPriorityTaskWokenDigital );
-	PORTA.INTFLAGS = PORT_INT0IF_bm;
+
+	//wakeup_for_C0 = true;
+	//vTaskNotifyGiveFromISR( countersTaskHandle , &xHigherPriorityTaskWokenDigital );
+
+	counter_C0++;		// Cuento
+	CNT_clr_CLRD();		// Borro el latch
+	PORTA.INTFLAGS = PORT_INT0IF_bm;	// Borro la interrupcion
 
 }
 //------------------------------------------------------------------------------------
@@ -58,9 +62,37 @@ ISR( PORTB_INT0_vect )
 	// el pulso y haga el debounced.
 	// Dado que los ISR de los 2 contadores son los que despiertan a la tarea, debo
 	// indicarle de donde proviene el llamado
-	wakeup_for_C1 = true;
-	vTaskNotifyGiveFromISR( countersTaskHandle , &xHigherPriorityTaskWokenDigital );
+
+	//wakeup_for_C1 = true;
+	//vTaskNotifyGiveFromISR( countersTaskHandle , &xHigherPriorityTaskWokenDigital );
+	counter_C1++;
+	CNT_clr_CLRD();
 	PORTB.INTFLAGS = PORT_INT0IF_bm;
 
 }
 //------------------------------------------------------------------------------------
+void COUNTERS_reset( uint8_t counter_id )
+{
+	if ( counter_id == 0 ) {
+		counter_C0 = 0;
+		return;
+	}
+
+	if ( counter_id == 1 ) {
+		counter_C1 = 0;
+		return;
+	}
+}
+//------------------------------------------------------------------------------------
+uint16_t COUNTERS_read( uint8_t counter_id )
+{
+	if ( counter_id == 0 ) {
+		return( counter_C0);
+	}
+
+	if ( counter_id == 1 ) {
+		return( counter_C1);
+	}
+}
+//------------------------------------------------------------------------------------
+

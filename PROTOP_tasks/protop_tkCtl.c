@@ -64,6 +64,8 @@ static void pv_ctl_init_system(void)
 
 	DRV8814_init();
 
+	COUNTERS_init( NULL );
+
 	// Habilito a arrancar al resto de las tareas
 	startTask = true;
 

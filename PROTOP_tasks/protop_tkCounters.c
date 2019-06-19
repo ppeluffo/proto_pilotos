@@ -54,7 +54,7 @@ const TickType_t xMaxBlockTime = pdMS_TO_TICKS( 10000 );
 			//xprintf_P( PSTR("COUNTERS: C0=%d,C1=%d\r\n\0"),(uint16_t) counters[0], (uint16_t) counters[1]);
 
 			// Espero el tiempo de debounced
-			vTaskDelay( ( TickType_t)( 10 / portTICK_RATE_MS ) );
+			//vTaskDelay( ( TickType_t)( 10 / portTICK_RATE_MS ) );
 
 			CNT_clr_CLRD();		// Borro el latch llevandolo a 0.
 			CNT_set_CLRD();		// Lo dejo en reposo en 1

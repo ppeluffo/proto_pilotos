@@ -117,7 +117,7 @@ uint8_t channel;
 
 	// Estado de las valvulas
 	if ( systemVars.status_valve_A == OPEN ) {
-		xprintf_P(PSTR("Valve: OPEN, \0"));
+		xprintf_P(PSTR("Valve A: OPEN, \0"));
 	} else {
 		xprintf_P(PSTR("Valve A: CLOSE, \0"));
 	}
@@ -297,7 +297,7 @@ static void cmdHelpFunction(void)
 	xprintf_P( PSTR("  (enable|disable),(set|reset),(sleep|awake),(ph01|ph10) } {A/B}\r\n\0"));
 	xprintf_P( PSTR("  (open|close) (A|B)\r\n\0"));
 	xprintf_P( PSTR("  power {on|off}\r\n\0"));
-	xprintf_P( PSTR("  vpulse (A|B) (ms)\r\n\0"));
+	xprintf_P( PSTR("  vpulse (A|B) (s)\r\n\0"));
 	xprintf_P( PSTR("  cpulse (A|B) (cval)\r\n\0"));
 	xprintf_P( PSTR("  init\r\n\0"));
 
