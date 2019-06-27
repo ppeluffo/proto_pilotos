@@ -228,6 +228,7 @@ uint8_t channel;
 	systemVars.p_margen = 0.075;
 	systemVars.pout_ref = 1.5;
 	systemVars.monitor = true;
+	systemVars.tipo_valvula_reguladora = VR_CHICA;
 
 }
 //------------------------------------------------------------------------------------
@@ -351,7 +352,7 @@ uint16_t D;
 //------------------------------------------------------------------------------------
 float u_readAin(uint8_t an_id)
 {
-	return (an_val[an_id] );
+	return (u_read_analog_channel(an_id) );
 }
 //------------------------------------------------------------------------------------
 

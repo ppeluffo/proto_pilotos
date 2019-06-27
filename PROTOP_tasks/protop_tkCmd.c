@@ -38,8 +38,6 @@ uint8_t ticks;
 	while ( !startTask )
 		vTaskDelay( ( TickType_t)( 100 / portTICK_RATE_MS ) );
 
-	vTaskDelay( ( TickType_t)( 500 / portTICK_RATE_MS ) );
-
 	FRTOS_CMD_init();
 
 	// Registro los comandos y los mapeo al cmd string.
@@ -86,7 +84,20 @@ uint8_t channel;
 	xprintf_P( PSTR("timerPoll: %d s\r\n\0"),systemVars.timerPoll );
 
 	// Pout Ref
-	xprintf_P( PSTR("Pout reference = %.02f\r\n\0"), systemVars.pout_ref );
+	xprintf_P( PSTR("Pout reference: %.02f\r\n\0"), systemVars.pout_ref );
+
+	// Tipo Valvula Reguladora
+	switch( systemVars.tipo_valvula_reguladora) {
+	case VR_CHICA:
+		xprintf_P( PSTR("tipo reguladora: CHICA\r\n\0") );
+		break;
+	case VR_MEDIA:
+		xprintf_P( PSTR("tipo reguladora: MEDIA\r\n\0") );
+		break;
+	case VR_GRANDE:
+		xprintf_P( PSTR("tipo reguladora: GRANDE\r\n\0") );
+		break;
+	}
 
 	// Regulacion
 	if ( systemVars.regular == true ) {
@@ -96,7 +107,7 @@ uint8_t channel;
 	}
 
 	// P_MARGEN
-	xprintf_P( PSTR("margen regulacion=%.02f\r\n\0"), systemVars.p_margen );
+	xprintf_P( PSTR("margen regulacion: %.02f\r\n\0"), systemVars.p_margen );
 
 	// Monitor
 	if ( systemVars.monitor == true ) {
@@ -114,19 +125,19 @@ uint8_t channel;
 	xprintf_P( PSTR("--------------------\r\n\0"));
 
 	// Estado de las valvulas
-	if ( systemVars.status_valve_A == OPEN ) {
+	if ( localVars.VA_status == OPEN ) {
 		xprintf_P(PSTR("Valve A: OPEN, \0"));
 	} else {
 		xprintf_P(PSTR("Valve A: CLOSE, \0"));
 	}
-	if ( systemVars.status_valve_B == OPEN ) {
+	if ( localVars.VB_status == OPEN ) {
 		xprintf_P(PSTR("Valve B: OPEN \r\n\0"));
 	} else {
 		xprintf_P(PSTR("Valve B: CLOSE \r\n\0"));
 	}
 
 	// Analog
-	xprintf_P(PSTR("AN0=%.02f, AN1=%.02f\r\n\0"), u_readAin(0), u_readAin(1) );
+	xprintf_P(PSTR("P.alta=%.02f, P.baja=%.02f\r\n\0"), u_readAin(0), u_readAin(1) );
 
 }
 //-----------------------------------------------------------------------------------
@@ -147,6 +158,32 @@ static void cmdConfigFunction(void)
 {
 
 	FRTOS_CMD_makeArgv();
+
+	// TIPO VALVULA REGULADORA
+	// config reguladora (chica,media,grande)
+	if (!strcmp_P( strupr(argv[1]), PSTR("REGULADORA\0")) ) {
+		if (!strcmp_P( strupr(argv[2]), PSTR("CHICA\0")) ) {
+			systemVars.tipo_valvula_reguladora = VR_CHICA;
+			pv_snprintfP_OK();
+			return;
+		}
+
+		if (!strcmp_P( strupr(argv[2]), PSTR("MEDIA\0")) ) {
+			systemVars.tipo_valvula_reguladora = VR_MEDIA;
+			pv_snprintfP_OK();
+			return;
+		}
+
+		if (!strcmp_P( strupr(argv[2]), PSTR("GRANDE\0")) ) {
+			systemVars.tipo_valvula_reguladora = VR_GRANDE;
+			pv_snprintfP_OK();
+			return;
+		}
+
+		pv_snprintfP_ERR();
+		return;
+
+	}
 
 	// REGULAR
 	// config regular on/off
@@ -259,6 +296,7 @@ static void cmdHelpFunction(void)
 	xprintf_P( PSTR("  regular (ON | OFF)\r\n\0"));
 	xprintf_P( PSTR("  monitor (ON | OFF)\r\n\0"));
 	xprintf_P( PSTR("  pout {val}, pmargen {val} \r\n\0"));
+	xprintf_P( PSTR("  reguladora {chica | media | grande} \r\n\0"));
 	xprintf_P( PSTR("  save\r\n\0"));
 
 	xprintf_P( PSTR("-valve\r\n\0"));

@@ -59,8 +59,8 @@
 //------------------------------------------------------------------------------------
 // DEFINES
 //------------------------------------------------------------------------------------
-#define SPX_FW_REV "0.0.7"
-#define SPX_FW_DATE "@ 20190619"
+#define SPX_FW_REV "0.0.12"
+#define SPX_FW_DATE "@ 20190627"
 
 #define SPX_HW_MODELO "protoPilotos HW:xmega256A3B R1.1"
 #define SPX_FTROS_VERSION "FW:FRTOS10 TICKLESS"
@@ -99,6 +99,8 @@ void tkData(void * pvParameters);
 void tkRegular(void * pvParameters);
 
 typedef enum { OPEN = 0, CLOSE } t_valve_status;
+typedef enum { VR_CHICA = 0, VR_MEDIA, VR_GRANDE } t_valvula_reguladora;
+typedef enum { ALTA = 0, BAJA } t_init_limit;
 
 typedef struct {
 	// Variables de trabajo.
@@ -113,19 +115,33 @@ typedef struct {
 	uint8_t checksum;
 
 	float pout_ref;
-	int tipo_valvula_reguladora;
+	t_valvula_reguladora tipo_valvula_reguladora;
 	float p_margen;
-
-	// Estado de las valvulas
-	t_valve_status status_valve_A;
-	t_valve_status status_valve_B;
 
 	bool regular;
 	bool monitor;
 
 } systemVarsType;
 
+typedef struct {
+	// Presiones:
+	float pA;
+	float pB;
+	float pB_avg;
+
+	// Estado de las valvulas
+	t_valve_status VA_status;
+	t_valve_status VB_status;
+
+	// Contadores de aperturas de valvulas
+	uint8_t VA_cnt;
+	uint8_t VB_cnt;
+
+} localVarsType;
+
+
 systemVarsType systemVars;
+localVarsType localVars;
 
 // UTILS
 void initMCU(void);
@@ -144,5 +160,7 @@ float readAin(uint8_t an_id);
 void vopen ( char valve_id );
 void vclose ( char valve_id );
 void vpulse( char valve_id, float pulse_width_s );
+
+void set_lineal_zone( t_init_limit zona );
 
 #endif /* SRC_SPX_H_ */
